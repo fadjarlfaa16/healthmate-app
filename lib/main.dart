@@ -63,7 +63,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // <-- User dari sini
 import 'package:supabase_flutter/supabase_flutter.dart'
     hide User; // <-- sembunyikan User
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'firebase_options.dart';
 import 'utils/Splash.dart';
 import 'screen/Login.dart';
@@ -75,7 +75,9 @@ import 'screen/mainhome/BMI.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  if (kIsWeb) {
+    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  }
   await Supabase.initialize(
     url: 'https://xkhygcapifxuxqczoxco.supabase.co',
     anonKey:
