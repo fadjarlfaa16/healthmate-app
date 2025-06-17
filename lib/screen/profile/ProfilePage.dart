@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../utils/ImageCompressor.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({Key? key}) : super(key: key);
@@ -17,126 +17,89 @@ class ProfileSettingsPage extends StatefulWidget {
 
 class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   final _nameController = TextEditingController();
-  File? _imageFile;
+  Uint8List? _imageBytes;
+  String? _imageName;
+  String? _initialImageUrl;
   bool _isLoading = false;
-  double _uploadProgress = 0.0; // <-- Untuk upload progress
 
-  Future<void> _pickImage() async {
-    final status = await Permission.camera.request();
-    if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Camera permission is required')),
-      );
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder:
-          (_) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.photo_library),
-                  title: const Text('Choose from Gallery'),
-                  onTap: () async {
-                    final picked = await ImagePicker().pickImage(
-                      source: ImageSource.gallery,
-                    );
-                    if (picked != null) {
-                      final compressed = await ImageHelper.compressImage(
-                        File(picked.path),
-                      );
-                      if (compressed != null) {
-                        setState(() => _imageFile = compressed);
-                      } else {
-                        setState(() => _imageFile = File(picked.path));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Compression failed, using original file',
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                    Navigator.pop(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.camera_alt),
-                  title: const Text('Take a Photo'),
-                  onTap: () async {
-                    final picked = await ImagePicker().pickImage(
-                      source: ImageSource.camera,
-                    );
-                    if (picked != null) {
-                      final compressed = await ImageHelper.compressImage(
-                        File(picked.path),
-                      );
-                      if (compressed != null) {
-                        setState(() => _imageFile = compressed);
-                      } else {
-                        setState(() => _imageFile = File(picked.path));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Compression failed, using original file',
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                    Navigator.pop(context);
-                  },
-                ),
-              ],
-            ),
-          ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
   }
 
-  Future<String?> _uploadToSupabase(File imageFile) async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return null;
+  Future<void> _loadInitialData() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final data = doc.data();
+    if (data != null) {
+      setState(() {
+        _nameController.text = data['profile']?['fullname'] ?? '';
+        _initialImageUrl = data['profile']?['imagePath'];
+      });
+    }
+  }
 
-    final ext = imageFile.path.split('.').last;
-    final fileName = "users/${userId}_${const Uuid().v4()}.$ext";
-
-    final fileBytes = await imageFile.readAsBytes();
-    final storageRef = Supabase.instance.client.storage.from('img-profile');
-
-    final response = await storageRef.uploadBinary(
-      fileName,
-      fileBytes,
-      fileOptions: const FileOptions(upsert: true),
-    );
-
-    if (response == null) {
-      return null;
+  Future<void> _pickImage(ImageSource source) async {
+    if (source == ImageSource.camera && !kIsWeb) {
+      final status = await Permission.camera.request();
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Camera permission is required')),
+        );
+        return;
+      }
     }
 
-    return storageRef.getPublicUrl(fileName);
+    final XFile? picked = await ImagePicker().pickImage(
+      source: source,
+      imageQuality: 30,
+      maxWidth: 600,
+      maxHeight: 600,
+    );
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _imageBytes = bytes;
+        _imageName = picked.name;
+      });
+    }
+  }
+
+  Future<String?> _uploadToSupabase() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final bytes = _imageBytes;
+    final name = _imageName;
+    if (uid == null || bytes == null || name == null) return null;
+
+    final ext = name.split('.').last;
+    final fileName = 'users/${uid}_${const Uuid().v4()}.$ext';
+    final storage = Supabase.instance.client.storage.from('img-profile');
+    try {
+      // uploadBinary throws on error
+      await storage.uploadBinary(
+        fileName,
+        bytes,
+        fileOptions: const FileOptions(upsert: true),
+      );
+      return storage.getPublicUrl(fileName);
+    } catch (e) {
+      debugPrint('Upload exception: $e');
+      return null;
+    }
   }
 
   Future<void> _updateProfile() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    setState(() {
-      _isLoading = true;
-      _uploadProgress = 0.0;
-    });
-
+    setState(() => _isLoading = true);
     String? imageUrl;
-    if (_imageFile != null) {
-      imageUrl = await _uploadToSupabase(_imageFile!);
+    if (_imageBytes != null) {
+      imageUrl = await _uploadToSupabase();
     }
-
     final updateData = {'profile.fullname': _nameController.text.trim()};
     if (imageUrl != null) updateData['profile.imagePath'] = imageUrl;
 
@@ -144,32 +107,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         .collection('users')
         .doc(uid)
         .update(updateData);
-
-    setState(() {
-      _isLoading = false;
-      _uploadProgress = 0.0;
-    });
-
+    setState(() => _isLoading = false);
     Navigator.pop(context);
-  }
-
-  Future<void> _loadInitialData() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    final doc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    final data = doc.data();
-
-    if (data != null) {
-      _nameController.text = data['profile']?['fullname'] ?? '';
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadInitialData();
   }
 
   @override
@@ -180,6 +119,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    ImageProvider<Object>? avatar;
+    if (_imageBytes != null) {
+      avatar = MemoryImage(_imageBytes!);
+    } else if (_initialImageUrl != null) {
+      avatar = NetworkImage(_initialImageUrl!);
+    } else {
+      avatar = null;
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       body: SafeArea(
@@ -191,7 +139,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 16),
-                      Text("Uploading...", style: TextStyle(fontSize: 16)),
+                      Text('Uploading...', style: TextStyle(fontSize: 16)),
                     ],
                   ),
                 )
@@ -209,7 +157,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                         ),
                         const SizedBox(width: 10),
                         const Text(
-                          "Edit Profile",
+                          'Edit Profile',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -220,16 +168,49 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                     const SizedBox(height: 24),
                     Center(
                       child: GestureDetector(
-                        onTap: _pickImage,
+                        onTap:
+                            () => showModalBottomSheet(
+                              context: context,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(20),
+                                ),
+                              ),
+                              builder:
+                                  (_) => SafeArea(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ListTile(
+                                          leading: const Icon(
+                                            Icons.photo_library,
+                                          ),
+                                          title: const Text(
+                                            'Choose from Gallery',
+                                          ),
+                                          onTap: () {
+                                            Navigator.pop(context);
+                                            _pickImage(ImageSource.gallery);
+                                          },
+                                        ),
+                                        ListTile(
+                                          leading: const Icon(Icons.camera_alt),
+                                          title: const Text('Take a Photo'),
+                                          onTap: () {
+                                            Navigator.pop(context);
+                                            _pickImage(ImageSource.camera);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                            ),
                         child: CircleAvatar(
                           radius: 50,
-                          backgroundImage:
-                              _imageFile != null
-                                  ? FileImage(_imageFile!)
-                                  : null,
                           backgroundColor: Colors.grey[300],
+                          backgroundImage: avatar,
                           child:
-                              _imageFile == null
+                              avatar == null
                                   ? const Icon(
                                     Icons.camera_alt,
                                     size: 32,
@@ -243,7 +224,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                     TextField(
                       controller: _nameController,
                       decoration: InputDecoration(
-                        labelText: "Full Name",
+                        labelText: 'Full Name',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -259,7 +240,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                     ElevatedButton.icon(
                       onPressed: _updateProfile,
                       icon: const Icon(Icons.save),
-                      label: const Text("Save Changes"),
+                      label: const Text('Save Changes'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF3B82F6),
                         foregroundColor: Colors.white,

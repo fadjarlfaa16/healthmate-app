@@ -15,7 +15,6 @@ class ImageHelper {
         quality: 30,
         minWidth: 600,
         minHeight: 600,
-        format: CompressFormat.jpeg, // <-- Force format ke JPEG
       );
 
       if (result == null) return null;

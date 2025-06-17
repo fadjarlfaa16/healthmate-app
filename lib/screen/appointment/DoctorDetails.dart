@@ -54,9 +54,9 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not logged in')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User not logged in')));
       return;
     }
 
@@ -69,7 +69,7 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
         'userId': user.uid,
         'date': appointmentDate,
         'time': appointmentTime,
-        'isScheduled': false, // status awal pending
+        'status': "pending",
         'createdAt': DateTime.now(),
       });
 
@@ -79,28 +79,24 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
 
       widget.onAppointmentBooked?.call();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to book appointment: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to book appointment: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = selectedDate != null
-        ? DateFormat('EEEE, dd MMM yyyy').format(selectedDate!)
-        : 'Select Date';
+    final dateStr =
+        selectedDate != null
+            ? DateFormat('EEEE, dd MMM yyyy').format(selectedDate!)
+            : 'Select Date';
     final timeStr =
         selectedTime != null ? selectedTime!.format(context) : 'Select Time';
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(widget.doctor.fullname),
-        backgroundColor: const Color.fromARGB(255, 120, 205, 226),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
@@ -108,17 +104,21 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
-                child: widget.doctor.profile != null
-                    ? CircleAvatar(
-                        radius: 50,
-                        backgroundImage: NetworkImage(widget.doctor.profile!),
-                      )
-                    : const CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Color.fromARGB(255, 200, 200, 200),
-                        child:
-                            Icon(Icons.person, size: 50, color: Colors.white),
-                      ),
+                child:
+                    widget.doctor.profile != null
+                        ? CircleAvatar(
+                          radius: 50,
+                          backgroundImage: NetworkImage(widget.doctor.profile!),
+                        )
+                        : const CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Color.fromARGB(255, 200, 200, 200),
+                          child: Icon(
+                            Icons.person,
+                            size: 50,
+                            color: Colors.white,
+                          ),
+                        ),
               ),
               const SizedBox(height: 20),
               Center(
@@ -127,7 +127,9 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
                     Text(
                       widget.doctor.fullname,
                       style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold),
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       widget.doctor.specialist,
@@ -140,15 +142,18 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
               _buildDetailItem('Age', '${widget.doctor.age} years'),
               _buildDetailItem('Based', widget.doctor.based),
               _buildDetailItem('Contact', widget.doctor.contact),
-              _buildDetailItem('Appointment Count',
-                  '${widget.doctor.appointmentCount ?? 0} times'),
+              _buildDetailItem(
+                'Appointment Count',
+                '${widget.doctor.appointmentCount ?? 0} times',
+              ),
               const SizedBox(height: 30),
               const Text(
                 'Appointment Schedule',
                 style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 120, 205, 226)),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color.fromARGB(255, 120, 205, 226),
+                ),
               ),
               const SizedBox(height: 10),
               Row(
@@ -159,10 +164,18 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
                       icon: const Icon(Icons.calendar_today),
                       label: Text(dateStr),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color.fromARGB(255, 220, 240, 250),
-                        foregroundColor:
-                            const Color.fromARGB(255, 20, 110, 140),
+                        backgroundColor: const Color.fromARGB(
+                          255,
+                          220,
+                          240,
+                          250,
+                        ),
+                        foregroundColor: const Color.fromARGB(
+                          255,
+                          20,
+                          110,
+                          140,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -176,10 +189,18 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
                       icon: const Icon(Icons.access_time),
                       label: Text(timeStr),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color.fromARGB(255, 220, 240, 250),
-                        foregroundColor:
-                            const Color.fromARGB(255, 20, 110, 140),
+                        backgroundColor: const Color.fromARGB(
+                          255,
+                          220,
+                          240,
+                          250,
+                        ),
+                        foregroundColor: const Color.fromARGB(
+                          255,
+                          20,
+                          110,
+                          140,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -199,9 +220,10 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Book Appointment',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Book Appointment',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),

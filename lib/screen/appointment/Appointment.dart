@@ -1,4 +1,3 @@
-// appointment/Appointment.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -34,7 +33,6 @@ class _AppointmentPageState extends State<AppointmentPage> {
           FirebaseFirestore.instance
               .collection('appointments')
               .where('userId', isEqualTo: userId)
-              // .orderBy('createdAt', descending: true)
               .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -91,8 +89,32 @@ class _AppointmentPageState extends State<AppointmentPage> {
     final doctorId = data['doctorId'];
     final date = data['date'] ?? '-';
     final time = data['time'] ?? '-';
-    final isScheduled = data['isScheduled'] ?? false;
-    final status = isScheduled ? 'Scheduled' : 'Pending';
+    final rawStatus = (data['status'] as String?)?.toLowerCase() ?? 'pending';
+
+    Color textColor;
+    Color bgColor;
+    String displayStatus;
+    switch (rawStatus) {
+      case 'pending':
+        displayStatus = 'Pending';
+        textColor = Colors.orange;
+        bgColor = Colors.orange.shade100;
+        break;
+      case 'accepted':
+        displayStatus = 'Accepted';
+        textColor = Colors.green;
+        bgColor = Colors.green.shade100;
+        break;
+      case 'rejected':
+        displayStatus = 'Rejected';
+        textColor = Colors.red;
+        bgColor = Colors.red.shade100;
+        break;
+      default:
+        displayStatus = rawStatus.capitalize(); // optional: capitalize unknown
+        textColor = Colors.grey.shade800;
+        bgColor = Colors.grey.shade200;
+    }
 
     return FutureBuilder<DocumentSnapshot>(
       future:
@@ -161,18 +183,15 @@ class _AppointmentPageState extends State<AppointmentPage> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      status == 'Scheduled'
-                          ? Colors.green[100]
-                          : Colors.orange[100],
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  status,
+                  displayStatus,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: status == 'Scheduled' ? Colors.green : Colors.orange,
+                    color: textColor,
                   ),
                 ),
               ),
@@ -181,7 +200,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
                   children: [
                     const Icon(
                       Icons.calendar_today,
-                      color: Colors.pink,
+                      color: Color.fromARGB(255, 33, 154, 224),
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -194,7 +213,11 @@ class _AppointmentPageState extends State<AppointmentPage> {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.location_on, color: Colors.pink, size: 20),
+                    const Icon(
+                      Icons.location_on,
+                      color: Color.fromARGB(255, 33, 154, 224),
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       based,
@@ -216,10 +239,10 @@ class _AppointmentPageState extends State<AppointmentPage> {
       _childPage = DoctorListPage(
         onDoctorSelected: (doctor) {
           if (doctor == null) {
-            // Tombol back, kembali ke appointment list
+            // Back to list
             setState(() => _childPage = _defaultPage());
           } else {
-            // Pilih dokter, ke halaman detail dokter
+            // Go to doctor details
             setState(() {
               _childPage = DoctorDetailPage(
                 doctor: doctor,
@@ -237,6 +260,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Your Appointment')),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: _childPage,
@@ -245,11 +269,15 @@ class _AppointmentPageState extends State<AppointmentPage> {
           _childPage.runtimeType != DoctorListPage &&
                   _childPage.runtimeType != DoctorDetailPage
               ? FloatingActionButton(
-                backgroundColor: Color.fromARGB(255, 120, 205, 226),
+                backgroundColor: const Color.fromARGB(255, 33, 154, 224),
                 onPressed: _goToDoctorList,
                 child: const Icon(Icons.add),
               )
               : null,
     );
   }
+}
+
+extension StringCasingExtension on String {
+  String capitalize() => isEmpty ? '' : this[0].toUpperCase() + substring(1);
 }

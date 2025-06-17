@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'ProfilePage.dart';
+import 'ActivityLog.dart';
+import '../../utils/ActivityLog.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -39,14 +41,15 @@ class ProfilePage extends StatelessWidget {
     );
 
     if (confirm == true) {
-      try {
-        await FirebaseAuth.instance.signOut();
-        Navigator.pushReplacementNamed(context, '/login');
-      } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        await LogDatabase.instance.insertLog(uid, 'logout');
       }
+      await FirebaseAuth.instance.signOut();
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/login',
+        (route) => false, // remove every prior route
+      );
     }
   }
 
@@ -65,9 +68,9 @@ class ProfilePage extends StatelessWidget {
           }
 
           final user = snapshot.data!;
-          final fullname = user['fullname'] ?? 'No Name';
+          final fullname = user['profile']['fullname'] ?? 'No Name';
           final email = FirebaseAuth.instance.currentUser?.email ?? 'No Email';
-          final imageUrl = user['imagePath'];
+          final imageUrl = user['profile']['imagePath'];
 
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
@@ -128,19 +131,14 @@ class ProfilePage extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
-              _buildMenuItem(
-                icon: Icons.notifications_none,
-                title: 'Notification',
-                onTap: () {
-                  // Tambahkan aksi jika diperlukan
-                },
-              ),
               _buildMenuItem(
                 icon: Icons.info_outline,
                 title: 'Information',
                 onTap: () {
-                  // Tambahkan aksi jika diperlukan
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ActivityLogPage()),
+                  );
                 },
               ),
               _buildMenuItem(

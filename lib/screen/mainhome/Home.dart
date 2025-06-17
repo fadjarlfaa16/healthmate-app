@@ -7,6 +7,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../HospitalService.dart';
 import 'BMI.dart';
 import 'AllDoctors.dart';
+import 'PatientCard.dart';
 
 class HomePageUI extends StatefulWidget {
   const HomePageUI({Key? key}) : super(key: key);
@@ -22,7 +23,7 @@ class _FullScreenBMIPredictionPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 1.0, // full screen
+      initialChildSize: 1.0,
       builder:
           (_, controller) => Container(
             decoration: const BoxDecoration(
@@ -49,30 +50,30 @@ class _FullScreenDoctorListPage extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
-            child: const AllDoctorsPage(), // Ganti dengan halaman Doctor kamu
+            child: const AllDoctorsPage(),
           ),
     );
   }
 }
 
-// class _FullScreenAppointmentPage extends StatelessWidget {
-//   const _FullScreenAppointmentPage({Key? key}) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return DraggableScrollableSheet(
-//       expand: false,
-//       initialChildSize: 1.0,
-//       builder: (_, controller) => Container(
-//         decoration: const BoxDecoration(
-//           color: Colors.white,
-//           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-//         ),
-//         child: const AppointmentPage(), // Ganti dengan halaman Appointment kamu
-//       ),
-//     );
-//   }
-// }
+class _FullScreenECardPage extends StatelessWidget {
+  const _FullScreenECardPage({Key? key}) : super(key: key);
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 1.0,
+      builder:
+          (_, controller) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: const PatientCard(),
+          ),
+    );
+  }
+}
 
 class _HomePageUIState extends State<HomePageUI> {
   Future<List<Map<String, dynamic>>>? _hospitalFuture;
@@ -153,8 +154,8 @@ class _HomePageUIState extends State<HomePageUI> {
         'color': Color.fromARGB(255, 33, 154, 224),
       },
       {
-        'icon': Icons.event_note,
-        'label': 'Appointment',
+        'icon': Icons.card_membership,
+        'label': 'Virtual Card',
         'route': '/appointment',
         'color': Color.fromARGB(255, 33, 154, 224),
       },
@@ -306,8 +307,7 @@ class _HomePageUIState extends State<HomePageUI> {
                                     isScrollControlled: true,
                                     backgroundColor: Colors.transparent,
                                     builder:
-                                        (_) =>
-                                            const _FullScreenDoctorListPage(),
+                                        (_) => const _FullScreenECardPage(),
                                   );
                                 }
                               },
